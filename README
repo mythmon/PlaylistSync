@@ -1,0 +1,4 @@
+PlaylistSync
+
+A tool to load a list of songs from a playlist file and copy them intelligently
+to a directory.

@@ -5,16 +5,12 @@ from songfile import SongFile
 from progress import ProgressBar
 from optparse import OptionParser
 from mutagen.mp3 import HeaderNotFoundError
+import unicodedata
 
 def sanitize(s):
-	return re.sub(r'[\/:\?]', '_', s)
-
-def constrain(n,low,high):
-	if n < low:
-		return low
-	if n > high:
-		return high
-	return n
+	s = unicodedata.normalize('NFKD', s).encode('ascii','ignore')
+	s = re.sub(r'[\/:\?]', '_', s)
+	return s
 
 if len(sys.argv) < 3:
 	print("Usage " + sys.argv[0] + " playlist destination")
@@ -133,7 +129,7 @@ if len(toAdd) > 0:
 		try:
 			shutil.copyfile(song.filename, newFile)
 		except (IOError):
-			pass
+			print "Error copying {0}".format(newFile)
 		i += 1
 		bar.update(i)
 else:

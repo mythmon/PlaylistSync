@@ -31,40 +31,41 @@ destset = set()
 
 print "Parsing playlist."
 
-playlistfiles = []
+playlistpaths = []
 
 for line in plist:
 	if line[0] == '#':
 		continue
 
 	if line[-1] == '\n':
-		file = line[:-1] # strip the new line
+		path = line[:-1] # strip the new line
 	else:
-		file = line
+		path = line
 
-	playlistfiles.append(file)
+	playlistpaths.append(path)
 
-if len(playlistfiles) == 0:
+if len(playlistpaths) == 0:
 	print("Playlist is empty!")
 	sys.exit()
 
 print "Loading metadata from playlist files."
-bar = ProgressBar(len(playlistfiles),"numbers")
+bar = ProgressBar(len(playlistpaths),"numbers")
 bar.draw()
 i = 0
 totalbytes=0
 
-for file in playlistfiles:
+for path in playlistpaths:
 	try:
-		song = SongFile(file)
+		song = SongFile()
+		song.load(path)
 		srcset.add(song)
-		totalbytes += os.path.getsize(file)
+		totalbytes += os.path.getsize(path)
 	except (IOError):
 		pass
 	i += 1
 	bar.update(i)
 
-print "{0} files, {1} MB".format(len(playlistfiles), totalbytes/(1024.0*1024.0))
+print "{0} files, {1} MB".format(len(playlistpaths), totalbytes/(1024.0*1024.0))
 
 print "Loading existing files"
 existingfiles = []
@@ -84,7 +85,8 @@ if len(existingfiles) > 0:
 
 	for file in existingfiles:
 		try:
-			song = SongFile(file)
+			song = SongFile()
+			song.load(file)
 			destset.add(song)
 		except (HeaderNotFoundError):
 			os.remove(file)

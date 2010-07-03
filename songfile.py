@@ -1,9 +1,13 @@
 from mutagen.easyid3 import EasyID3
 from mutagen.mp3 import MP3
+import json
 
 class SongFile:
-	def __init__(self, file):
-		data = MP3(file, ID3=EasyID3)
+	# Load id3 info from a file
+	def load(self,mp3path):
+		data = MP3(mp3path, ID3=EasyID3)
+		self.mp3path = mp3path
+		# Note, these are lists, not single values.
 		self.artist = data['artist']
 		self.album = data['album']
 		self.title = data['title']
@@ -12,8 +16,8 @@ class SongFile:
 			self.track = [ int(i.split('/')[0]) for i in data['tracknumber'] ]
 		except (KeyError):
 			self.track = []
-		self.filename = file
 
+	# make a nice pretty string to print out
 	def __repr__(self):
 		allArtists = ', '.join(self.artist)
 		allAlbums = ', '.join(self.album)
@@ -21,15 +25,38 @@ class SongFile:
 		allTracks = ', '.join([str(i) for i in self.track])
 		return '"{0} by {1} #{2} on {3}"'.format(allTitles, allArtists, allTracks, allAlbums)
 
+	# Use the hash of all the id3 info combined into a string
 	def __hash__(self):
 		s = ''.join(self.artist + self.album + self.title + [str(i) for i in self.track])
 		return hash(s)
 
+	# The has file that will be used for identifying json snippets
+	def jsonHash(self):
+		return hash(self.mp3path)
+
+	# Convert to json
+	def toJson(self):
+		data = self.data()
+		j = json.dumps(data)
+		return j
+
+	# From json
+	def fromJson(self, jsonString):
+		data = json.loads(jsonString)
+		self.mp3path = data['path']
+		self.artist = [data['artist']]
+		self.album = [data['album']]
+		self.title = [data['title']]
+		self.track = [data['track']]
+
+	# ignore the path, just worry about the artist,album,title, etc
 	def __eq__(self, other):
 		return self.__hash__() == other.__hash__()
 
+	# Generate a dictionary with all our data
 	def data(self, root=None, single=True):
 		data = {}
+		data['path'] = self.mp3path
 		if root:
 			data['root'] = root
 

@@ -1,4 +1,9 @@
+# Compiled python
 *.pyc
+
+# Testing files
 scratch
 *.m3u
+
+# Vim files
 *.swp

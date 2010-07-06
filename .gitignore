@@ -4,6 +4,7 @@
 # Testing files
 scratch
 *.m3u
+cache
 
 # Vim files
 *.swp

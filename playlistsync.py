@@ -7,10 +7,35 @@ from optparse import OptionParser
 from mutagen.mp3 import HeaderNotFoundError
 import unicodedata
 
+cacheDir = os.path.join(os.getcwdu(), 'cache')
+if not os.path.exists(cacheDir):
+	os.mkdir(cacheDir)
+
 def sanitize(s):
 	s = unicodedata.normalize('NFKD', s).encode('ascii','ignore')
 	s = re.sub(r'[\/:\?]', '_', s)
 	return s
+
+def getMetaData(songPath):
+	cachePath = os.path.join(cacheDir, str(abs(hash(songPath))))
+	song = SongFile()
+
+	if os.path.exists(cachePath):
+		f = open(cachePath, 'r')
+		jsonData = f.read()
+		song.fromJson(jsonData)
+		f.close()
+	else:
+		try:
+			song.load(songPath)
+			f = open(cachePath,'w')
+			f.write(song.toJson())
+		except (IOError):
+			print "IOError", IOError
+		finally:
+			f.close()
+	
+	return song
 
 if len(sys.argv) < 3:
 	print("Usage " + sys.argv[0] + " playlist destination")
@@ -55,41 +80,38 @@ i = 0
 totalbytes=0
 
 for path in playlistpaths:
-	try:
-		song = SongFile()
-		song.load(path)
-		srcset.add(song)
-		totalbytes += os.path.getsize(path)
-	except (IOError):
-		pass
+	song = getMetaData(path)
+	totalbytes += os.path.getsize(path)
+
+	srcset.add(song)
 	i += 1
 	bar.update(i)
 
 print "{0} files, {1} MB".format(len(playlistpaths), totalbytes/(1024.0*1024.0))
 
 print "Loading existing files"
-existingfiles = []
+existingFilePaths = []
 
 for dirpath, dirnames, filenames in os.walk(dest):
-	for file in filenames:
-		if file[-3:] == 'mp3':
-			fullpath = os.path.join(dirpath, file)
-			existingfiles.append(fullpath)
+	for path in filenames:
+		if path[-3:] == 'mp3':
+			fullpath = os.path.join(dirpath, path)
+			existingFilePaths.append(fullpath)
 
-if len(existingfiles) > 0:
-	print "Loading ID3 tags from existing files."
-	print len(existingfiles)
-	bar = ProgressBar(len(existingfiles),"numbers")
+if len(existingFilePaths) > 0:
+	print "Loading metadata from existing files."
+	bar = ProgressBar(len(existingFilePaths),"numbers")
 	bar.draw()
 	i = 0
 
-	for file in existingfiles:
+	for path in existingFilePaths:
 		try:
-			song = SongFile()
-			song.load(file)
+			song = getMetaData(path)
 			destset.add(song)
 		except (HeaderNotFoundError):
-			os.remove(file)
+			# This is when the mp3 file in place is malformed, like when it is
+			# only a partial file
+			os.remove(path)
 		i += 1
 		bar.update(i)
 else:
@@ -115,23 +137,23 @@ if len(toAdd) > 0:
 		data['artist'] = sanitize(data['artist'])
 		data['album'] = sanitize(data['album'])
 		data['title'] = sanitize(data['title'])
-		newFile = ""
+		newPath = ""
 		if options.flat == False:
 			artistDir = u"{0[root]}/{0[artist]}".format(data)
 			albumDir = artistDir + u"/{0[album]}".format(data)
-			newFile = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
+			newPath = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
 
 			if not os.path.exists(artistDir):
 				os.mkdir(artistDir)
 			if not os.path.exists(albumDir):
 				os.mkdir(albumDir)
 		else:
-			newFile = u"{0[root]}/{0[artist]} - {0[album]} - {0[track]:0>2} {0[title]}.mp3".format(data)
+			newPath = u"{0[root]}/{0[artist]} - {0[album]} - {0[track]:0>2} {0[title]}.mp3".format(data)
 
 		try:
-			shutil.copyfile(song.filename, newFile)
+			shutil.copyfile(song.mp3path, newPath)
 		except (IOError):
-			print "Error copying {0}".format(newFile)
+			print "Error copying {0}".format(newPath)
 		i += 1
 		bar.update(i)
 else:
@@ -140,10 +162,10 @@ else:
 if len(toDel) > 0:
 	print "Deleting songs"
 	for song in toDel:
-		os.remove(song.filename)
+		os.remove(song.mp3path)
 
+first = False
 if len(toCheck) > 0:
-	print "Moving songs"
 	for song in toCheck:
 		data = song.data(root=dest)
 		data['artist'] = sanitize(data['artist'])
@@ -162,8 +184,11 @@ if len(toCheck) > 0:
 		else:
 			newFile = u"{0[root]}/{0[artist]} - {0[album]} - {0[track]:0>2} {0[title]}.mp3".format(data)
 
-		if not song.filename == newFile:
-			shutil.move(song.filename, newFile)
+		if not song.mp3path == newFile:
+			if first:
+				first = False
+				print "Organizing old songs"
+			shutil.move(song.mp3path, newFile)
 
 print
 print "Done."

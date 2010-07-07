@@ -24,21 +24,21 @@ def getMetaData(songPath):
 	try:
 		f = open(cachePath, 'r')
 		jsonData = json.load(f)
+		f.close()
 		if jsonData['path'] == songPath:
 			song.fromJson(jsonData)
 		else:
-			print "Hash collision!"
+			# Hash collision !
+			# TODO: Do something better about this
 			raise LookupError()
 	except Exception as e:
-		print e
 		try:
 			song.load(songPath)
 			f = open(cachePath,'w')
 			f.write(song.toJson())
+			f.close()
 		except (IOError):
 			print "IOError", IOError
-	finally:
-		f.close()
 	
 	return song
 
@@ -128,7 +128,6 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 		print "Deleting songs"
 		for song in toDel:
 			os.remove(song.mp3path)
-
 	if len(toAdd) > 0:
 		print "Copying songs"
 		bar = ProgressBar(len(toAdd),"numbers")
@@ -202,7 +201,7 @@ if __name__ == "__main__":
 			help="Copies files to a single directory, instead of structured into folders.")
 	parser.add_option("-s", "--structured", action="store_false", dest="flat",
 			help="Copies files to a structured hierarchy, with folders for artists and albums.")
-	parser.add_option("-q", "--quiet", action="store_true", dest="flat",
+	parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
 			help="Silences all output.")
 	parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
 			help="Gives extra output.")

@@ -42,7 +42,12 @@ def getMetaData(songPath):
 	
 	return song
 
-def main(plistpath, dest, flat=False, quiet=False, verbose=False):
+def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
+	if options:
+		flat = options.flat
+		quiet = options.quiet
+		verbose = options.verbose
+		
 	plist = open(plistpath)
 	srcset = set()
 	destset = set()
@@ -119,6 +124,11 @@ def main(plistpath, dest, flat=False, quiet=False, verbose=False):
 		if song in srcset:
 			toCheck.add(song)
 
+	if len(toDel) > 0:
+		print "Deleting songs"
+		for song in toDel:
+			os.remove(song.mp3path)
+
 	if len(toAdd) > 0:
 		print "Copying songs"
 		bar = ProgressBar(len(toAdd),"numbers")
@@ -151,11 +161,6 @@ def main(plistpath, dest, flat=False, quiet=False, verbose=False):
 			bar.update(i)
 	else:
 		print "All songs already there!"
-
-	if len(toDel) > 0:
-		print "Deleting songs"
-		for song in toDel:
-			os.remove(song.mp3path)
 
 	first = False
 	if len(toCheck) > 0:
@@ -193,11 +198,17 @@ if __name__ == "__main__":
 
 	parser = OptionParser()
 	parser.set_defaults(flat=False)
-	parser.add_option("-f", "--flat", action="store_true", dest="flat", help="Copies files to a single directory, instead of structured into folders.")
-	parser.add_option("-s", "--structured", action="store_false", dest="flat", help="Copies files to a structured hierarchy, with folders for artists and albums.")
+	parser.add_option("-f", "--flat", action="store_true", dest="flat",
+			help="Copies files to a single directory, instead of structured into folders.")
+	parser.add_option("-s", "--structured", action="store_false", dest="flat",
+			help="Copies files to a structured hierarchy, with folders for artists and albums.")
+	parser.add_option("-q", "--quiet", action="store_true", dest="flat",
+			help="Silences all output.")
+	parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
+			help="Gives extra output.")
 	options, args = parser.parse_args()
 
 	plistpath = args[0]
 	dest = args[1]
 
-	main(plistpath,dest,flat=options.flat)
+	main(args[0],args[1],options)

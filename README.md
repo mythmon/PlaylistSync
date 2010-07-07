@@ -1,4 +1,5 @@
 PlaylistSync
+============
 
 A tool to load a list of songs from a playlist file and copy them intelligently
 to a directory.
@@ -10,11 +11,12 @@ destination.
 
 
 Options
+-------
 
--f, --flat
+* -f, --flat
 Organize files into a flat structure, ie: as "$artist - $album - $tracknum
 $title.mp3"
 
--s, --structured
+* -s, --structured
 Organize files into directories based on artist and album, ie: as
 "$artist/$album/$tracknum $title.mp3"

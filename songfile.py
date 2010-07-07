@@ -1,6 +1,9 @@
 from mutagen.easyid3 import EasyID3
 from mutagen.mp3 import MP3
 import json
+from exceptions import *
+
+CACHE_VERSION = 1
 
 class SongFile:
 	# Load id3 info from a file
@@ -43,6 +46,11 @@ class SongFile:
 	# From json
 	def fromJson(self, jsonString):
 		data = json.loads(jsonString)
+
+		if int(data['cache_version']) != CACHE_VERSION:
+			print data['cache_version'], CACHE_VERSION
+			raise CacheVersionError(data['cache_version'], CACHE_VERSION)
+
 		self.mp3path = data['path']
 		self.artist = [data['artist']]
 		self.album = [data['album']]
@@ -57,6 +65,7 @@ class SongFile:
 	def data(self, root=None, single=True):
 		data = {}
 		data['path'] = self.mp3path
+		data['cache_version'] = CACHE_VERSION
 		if root:
 			data['root'] = root
 

@@ -5,6 +5,7 @@ from songfile import SongFile
 from progress import ProgressBar
 from optparse import OptionParser
 from mutagen.mp3 import HeaderNotFoundError
+import json
 import unicodedata
 
 cacheDir = os.path.join(os.getcwdu(), 'cache')
@@ -22,9 +23,14 @@ def getMetaData(songPath):
 
 	try:
 		f = open(cachePath, 'r')
-		jsonData = f.read()
-		song.fromJson(jsonData)
+		jsonData = json.load(f)
+		if jsonData['path'] == songPath:
+			song.fromJson(jsonData)
+		else:
+			print "Hash collision!"
+			raise LookupError()
 	except Exception as e:
+		print e
 		try:
 			song.load(songPath)
 			f = open(cachePath,'w')
@@ -36,7 +42,7 @@ def getMetaData(songPath):
 	
 	return song
 
-def main(plistpath, dest):
+def main(plistpath, dest, flat=False, quiet=False, verbose=False):
 	plist = open(plistpath)
 	srcset = set()
 	destset = set()
@@ -125,7 +131,7 @@ def main(plistpath, dest):
 			data['album'] = sanitize(data['album'])
 			data['title'] = sanitize(data['title'])
 			newPath = ""
-			if options.flat == False:
+			if flat == False:
 				artistDir = u"{0[root]}/{0[artist]}".format(data)
 				albumDir = artistDir + u"/{0[album]}".format(data)
 				newPath = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
@@ -159,7 +165,7 @@ def main(plistpath, dest):
 			data['album'] = sanitize(data['album'])
 			data['title'] = sanitize(data['title'])
 			newFile = ""
-			if options.flat == False:
+			if flat == False:
 				artistDir = u"{0[root]}/{0[artist]}".format(data)
 				albumDir = artistDir + u"/{0[album]}".format(data)
 				newFile = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
@@ -194,4 +200,4 @@ if __name__ == "__main__":
 	plistpath = args[0]
 	dest = args[1]
 
-	main(plistpath,dest)
+	main(plistpath,dest,flat=options.flat)

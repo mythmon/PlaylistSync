@@ -44,18 +44,16 @@ class SongFile:
 		return j
 
 	# From json
-	def fromJson(self, jsonString):
-		data = json.loads(jsonString)
+	def fromJson(self, jsonData):
+		if int(jsonData['cache_version']) != CACHE_VERSION:
+			print jsonData['cache_version'], CACHE_VERSION
+			raise CacheVersionError(jsonData['cache_version'], CACHE_VERSION)
 
-		if int(data['cache_version']) != CACHE_VERSION:
-			print data['cache_version'], CACHE_VERSION
-			raise CacheVersionError(data['cache_version'], CACHE_VERSION)
-
-		self.mp3path = data['path']
-		self.artist = [data['artist']]
-		self.album = [data['album']]
-		self.title = [data['title']]
-		self.track = [data['track']]
+		self.mp3path = jsonData['path']
+		self.artist = [jsonData['artist']]
+		self.album = [jsonData['album']]
+		self.title = [jsonData['title']]
+		self.track = [jsonData['track']]
 
 	# ignore the path, just worry about the artist,album,title, etc
 	def __eq__(self, other):

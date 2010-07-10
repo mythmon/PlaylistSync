@@ -128,6 +128,33 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 		print "Deleting songs"
 		for song in toDel:
 			os.remove(song.mp3path)
+
+	first = False
+	if len(toCheck) > 0:
+		for song in toCheck:
+			data = song.data(root=dest)
+			data['artist'] = sanitize(data['artist'])
+			data['album'] = sanitize(data['album'])
+			data['title'] = sanitize(data['title'])
+			newFile = ""
+			if flat == False:
+				artistDir = u"{0[root]}/{0[artist]}".format(data)
+				albumDir = artistDir + u"/{0[album]}".format(data)
+				newFile = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
+
+				if not os.path.exists(artistDir):
+					os.mkdir(artistDir)
+				if not os.path.exists(albumDir):
+					os.mkdir(albumDir)
+			else:
+				newFile = u"{0[root]}/{0[artist]} - {0[album]} - {0[track]:0>2} {0[title]}.mp3".format(data)
+
+			if not song.mp3path == newFile:
+				if first:
+					first = False
+					print "Organizing old songs"
+				shutil.move(song.mp3path, newFile)
+
 	if len(toAdd) > 0:
 		print "Copying songs"
 		bar = ProgressBar(len(toAdd),"numbers")
@@ -160,32 +187,6 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 			bar.update(i)
 	else:
 		print "All songs already there!"
-
-	first = False
-	if len(toCheck) > 0:
-		for song in toCheck:
-			data = song.data(root=dest)
-			data['artist'] = sanitize(data['artist'])
-			data['album'] = sanitize(data['album'])
-			data['title'] = sanitize(data['title'])
-			newFile = ""
-			if flat == False:
-				artistDir = u"{0[root]}/{0[artist]}".format(data)
-				albumDir = artistDir + u"/{0[album]}".format(data)
-				newFile = albumDir + u"/{0[track]:0>2} {0[title]}.mp3".format(data)
-
-				if not os.path.exists(artistDir):
-					os.mkdir(artistDir)
-				if not os.path.exists(albumDir):
-					os.mkdir(albumDir)
-			else:
-				newFile = u"{0[root]}/{0[artist]} - {0[album]} - {0[track]:0>2} {0[title]}.mp3".format(data)
-
-			if not song.mp3path == newFile:
-				if first:
-					first = False
-					print "Organizing old songs"
-				shutil.move(song.mp3path, newFile)
 
 	print
 	print "Done."

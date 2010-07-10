@@ -31,14 +31,12 @@ def getMetaData(songPath):
 			# Hash collision !
 			# TODO: Do something better about this
 			raise LookupError()
-	except Exception as e:
+	except LookupError as e, IOError as e:
 		try:
 			song.load(songPath)
 			f = open(cachePath,'w')
 			f.write(song.toJson())
 			f.close()
-		except (IOError):
-			print "IOError", IOError
 	
 	return song
 
@@ -47,6 +45,8 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 		flat = options.flat
 		quiet = options.quiet
 		verbose = options.verbose
+
+	p = Printer(quiet, verbose)
 		
 	plist = open(plistpath)
 	srcset = set()
@@ -106,10 +106,13 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 			try:
 				song = getMetaData(path)
 				destset.add(song)
-			except (HeaderNotFoundError):
+			except HeaderNotFoundError:
 				# This is when the mp3 file in place is malformed, like when it is
 				# only a partial file
 				os.remove(path)
+			except IOError:
+				# Something wierd happened
+				print "File not found", path
 			i += 1
 			bar.update(i)
 	else:

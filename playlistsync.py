@@ -7,10 +7,15 @@ from optparse import OptionParser
 from mutagen.mp3 import HeaderNotFoundError
 import json
 import unicodedata
+import warnings
+from printer import Printer
 
 cacheDir = os.path.join(os.getcwdu(), 'cache')
 if not os.path.exists(cacheDir):
 	os.mkdir(cacheDir)
+
+p = Printer()
+warnings.simplefilter("ignore")
 
 def sanitize(s):
 	s = unicodedata.normalize('NFKD', s).encode('ascii','ignore')
@@ -40,17 +45,15 @@ def getMetaData(songPath):
 	
 	return song
 
-def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
+def main(plistpath, dest, options=None):
 	if options:
 		flat = options.flat
-		quiet = options.quiet
-		verbose = options.verbose
 		
 	plist = open(plistpath)
 	srcset = set()
 	destset = set()
 
-	print "Parsing playlist."
+	p.message("Parsing playlist.", 1)
 
 	playlistpaths = []
 
@@ -66,26 +69,31 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 		playlistpaths.append(path)
 
 	if len(playlistpaths) == 0:
-		print("Playlist is empty!")
+		p.message("Playlist is empty!", 1)
 		sys.exit()
 
-	print "Loading metadata from playlist files."
-	bar = ProgressBar(len(playlistpaths),"numbers")
-	bar.draw()
+	p.message("Loading metadata from playlist files.", 1)
+	if p.level > 1:
+		bar = ProgressBar(len(playlistpaths),"numbers")
+		bar.draw()
 	i = 0
 	totalbytes=0
 
 	for path in playlistpaths:
-		song = getMetaData(path)
-		totalbytes += os.path.getsize(path)
+		try:
+			song = getMetaData(path)
+			totalbytes += os.path.getsize(path)
 
-		srcset.add(song)
+			srcset.add(song)
+		except (OSError, IOError) as e:
+			p.message("\nError loading {0}: {1}".format(path, e.strerror), 2)
 		i += 1
-		bar.update(i)
+		if p.level > 1:
+			bar.update(i)
 
-	print "{0} files, {1} MB".format(len(playlistpaths), totalbytes/(1024.0*1024.0))
+	p.message("{0} files, {1} MB".format(len(playlistpaths), totalbytes/(1024.0*1024.0)), 2)
 
-	print "Loading existing files"
+	p.message("Loading existing files", 1)
 	existingFilePaths = []
 
 	for dirpath, dirnames, filenames in os.walk(dest):
@@ -95,9 +103,10 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 				existingFilePaths.append(fullpath)
 
 	if len(existingFilePaths) > 0:
-		print "Loading metadata from existing files."
-		bar = ProgressBar(len(existingFilePaths),"numbers")
-		bar.draw()
+		p.message("Loading metadata from existing files.", 2)
+		if p.level > 1:
+			bar = ProgressBar(len(existingFilePaths),"numbers")
+			bar.draw()
 		i = 0
 
 		for path in existingFilePaths:
@@ -110,11 +119,12 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 				os.remove(path)
 			except IOError:
 				# Something wierd happened
-				print "File not found", path
+				p.message("File not found" + path, 2)
 			i += 1
-			bar.update(i)
+			if p.level > 1:
+				bar.update(i)
 	else:
-		print "No existing files"
+		p.message("No existing files", 3)
 
 	toAdd = srcset - destset
 	toDel = destset - srcset
@@ -126,7 +136,7 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 			toCheck.add(song)
 
 	if len(toDel) > 0:
-		print "Deleting songs"
+		p.message("Deleting songs", 1)
 		for song in toDel:
 			os.remove(song.mp3path)
 
@@ -153,13 +163,14 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 			if not song.mp3path == newFile:
 				if first:
 					first = False
-					print "Organizing old songs"
+					p.message("Organizing old songs", 1)
 				shutil.move(song.mp3path, newFile)
 
 	if len(toAdd) > 0:
-		print "Copying songs"
-		bar = ProgressBar(len(toAdd),"numbers")
-		bar.draw()
+		p.message("Copying songs", 1)
+		if p.level > 1:
+			bar = ProgressBar(len(toAdd),"numbers")
+			bar.draw()
 		i = 0
 
 		for song in toAdd:
@@ -182,34 +193,38 @@ def main(plistpath, dest, options=None, flat=False, quiet=False, verbose=False):
 
 			try:
 				shutil.copyfile(song.mp3path, newPath)
-			except (IOError):
-				print "Error copying {0}".format(newPath)
+			except IOError as e:
+				p.message("Error copying {0}: {1}".format(newPath, e.strerror), 3)
 			i += 1
-			bar.update(i)
+			if p.level > 1:
+				bar.update(i)
 	else:
-		print "All songs already there!"
+		p.message("All songs already there!", 1)
 
-	print
-	print "Done."
+	p.message("\n\nDone.", 1)
 
 if __name__ == "__main__":
-	if len(sys.argv) < 3:
-		print("Usage " + sys.argv[0] + " playlist destination")
-		sys.exit()
+	parser = OptionParser(usage="usage: %prog [options] playlist destination")
+	parser.set_defaults(flat=False, verbosity=2)
 
-	parser = OptionParser()
-	parser.set_defaults(flat=False)
 	parser.add_option("-f", "--flat", action="store_true", dest="flat",
 			help="Copies files to a single directory, instead of structured into folders.")
 	parser.add_option("-s", "--structured", action="store_false", dest="flat",
 			help="Copies files to a structured hierarchy, with folders for artists and albums.")
-	parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
-			help="Silences all output.")
-	parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
-			help="Gives extra output.")
+	parser.add_option("-q", "--quiet", action="store_const", dest="verbosity",
+			const=1, help="Gives less output. (Verbosity: 1)")
+	parser.add_option("-v", "--verbose", action="store", dest="verbosity",
+			help="Set verbosity to a particular level. (Default: 2)")
 	options, args = parser.parse_args()
+
+	p.setLevel(int(options.verbosity))
+
+	if len(args) < 2:
+		parser.print_help()
+		sys.exit()
 
 	plistpath = args[0]
 	dest = args[1]
+
 
 	main(args[0],args[1],options)

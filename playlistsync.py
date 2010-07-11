@@ -15,7 +15,7 @@ if not os.path.exists(cacheDir):
 	os.mkdir(cacheDir)
 
 p = Printer()
-warnings.simplefilter("ignore")
+warnings.simplefilter("ignore", UnicodeWarning)
 
 def sanitize(s):
 	s = unicodedata.normalize('NFKD', s).encode('ascii','ignore')
@@ -30,6 +30,7 @@ def getMetaData(songPath):
 		f = open(cachePath, 'r')
 		jsonData = json.load(f)
 		f.close()
+		# TODO: Eventually we should have these expire after a time
 		if jsonData['path'] == songPath:
 			song.fromJson(jsonData)
 		else:
@@ -48,6 +49,7 @@ def getMetaData(songPath):
 def main(plistpath, dest, options=None):
 	if options:
 		flat = options.flat
+		delete = options.delete
 		
 	plist = open(plistpath)
 	srcset = set()
@@ -129,17 +131,23 @@ def main(plistpath, dest, options=None):
 	toAdd = srcset - destset
 	toDel = destset - srcset
 
-	# we can't just take the intersection, because we need the version from dest
+	# we can't just take the intersection, because we need the version from
+	# dest
 	toCheck = set()
 	for song in destset:
 		if song in srcset:
 			toCheck.add(song)
 
-	if len(toDel) > 0:
+	# Delete songs that shouldn't be there (if we should delete things)
+	if delete and len(toDel) > 0:
 		p.message("Deleting songs", 1)
 		for song in toDel:
 			os.remove(song.mp3path)
+	else:
+		p.message("Not deleting: flag={0}, len(toDel)={1}".format(delete,len(toDel)),5)
 
+	# Move songs around that are already there, but possibly not in the right
+	# place
 	first = False
 	if len(toCheck) > 0:
 		for song in toCheck:
@@ -166,6 +174,7 @@ def main(plistpath, dest, options=None):
 					p.message("Organizing old songs", 1)
 				shutil.move(song.mp3path, newFile)
 
+	# Copy new songs
 	if len(toAdd) > 0:
 		p.message("Copying songs", 1)
 		if p.level > 1:
@@ -201,11 +210,13 @@ def main(plistpath, dest, options=None):
 	else:
 		p.message("All songs already there!", 1)
 
-	p.message("\n\nDone.", 1)
+	p.message("\nDone.", 1)
+
 
 if __name__ == "__main__":
+	# Set up the option parser
 	parser = OptionParser(usage="usage: %prog [options] playlist destination")
-	parser.set_defaults(flat=False, verbosity=2)
+	parser.set_defaults(flat=False, verbosity=2, delete=True)
 
 	parser.add_option("-f", "--flat", action="store_true", dest="flat",
 			help="Copies files to a single directory, instead of structured into folders.")
@@ -215,16 +226,19 @@ if __name__ == "__main__":
 			const=1, help="Gives less output. (Verbosity: 1)")
 	parser.add_option("-v", "--verbose", action="store", dest="verbosity",
 			help="Set verbosity to a particular level. (Default: 2)")
-	options, args = parser.parse_args()
+	parser.add_option("-D", "--no-delete", action="store_false", dest="delete",
+			help="Don't delete files that are not described in the playlist.")
+	parser.add_option("-d", "--delete", action="store_true", dest="delete",
+			help="Delete files that are not described in the playlist. (Default)")
 
+	# Parse options
+	options, args = parser.parse_args()
 	p.setLevel(int(options.verbosity))
 
+	# Make sure we have enough information
 	if len(args) < 2:
 		parser.print_help()
 		sys.exit()
 
-	plistpath = args[0]
-	dest = args[1]
-
-
+	# DO IT!
 	main(args[0],args[1],options)
